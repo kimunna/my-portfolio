@@ -1,119 +1,110 @@
-/* 대체용 포트폴리오 — 한 파일로 전체 디자인을 담당합니다.
-   색이나 글꼴을 바꿔보고 git push 하면 1~2분 뒤 사이트에 반영됩니다. */
-/* 테스트를 위해 주석을 추가합니다. */
-:root {
-  --bg: #0b0e1a;
-  --card: #141a2e;
-  --line: #263050;
-  --text: #e8ecf6;
-  --dim: #9aa5c0;
-  --accent: #45e0ff;
-  --accent2: #a273ff;
-}
+/* 운석 피하기 — 디자인 담당 파일 */
 
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  padding: 0 20px 60px;
-  background: var(--bg);
-  color: var(--text);
+  padding: 28px 20px 50px;
+  background: #070912;
+  color: #e8ecf6;
   font-family: "Pretendard", "맑은 고딕", "Malgun Gothic", sans-serif;
-  line-height: 1.7;
   word-break: keep-all;
   overflow-wrap: break-word;
-}
-
-header, main, footer { max-width: 860px; margin: 0 auto; }
-
-header {
-  padding: 70px 0 40px;
-  border-bottom: 1px solid var(--line);
-  margin-bottom: 40px;
-}
-
-.eyebrow {
-  margin: 0 0 8px;
-  font-size: 0.85rem;
-  letter-spacing: 0.14em;
-  color: var(--accent);
+  text-align: center;
 }
 
 h1 {
-  margin: 0 0 10px;
-  font-size: 2.6rem;
-  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  margin: 0 0 6px;
+  font-size: 1.8rem;
+  background: linear-gradient(90deg, #45e0ff, #a273ff);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
-.sub { margin: 0; color: var(--dim); }
+.sub { margin: 0 0 22px; color: #9aa5c0; font-size: 0.92rem; }
 
-section { margin-bottom: 46px; }
-
-h2 {
-  font-size: 1.35rem;
-  margin: 0 0 18px;
-  padding-left: 12px;
-  border-left: 3px solid var(--accent);
+.판 {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  align-items: flex-start;
+  flex-wrap: wrap;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 14px;
-}
-
-.card {
-  background: var(--card);
-  border: 1px solid var(--line);
+canvas {
+  background: #070912;
+  border: 1px solid #263050;
   border-radius: 12px;
-  padding: 18px;
+  display: block;
+  max-width: 100%;
 }
 
-.card h3 {
-  margin: 0 0 6px;
-  font-size: 0.9rem;
-  color: var(--accent);
-  letter-spacing: 0.06em;
+.안내 { margin: 10px 0 0; color: #9aa5c0; font-size: 0.88rem; }
+
+.오른쪽 { width: 240px; text-align: left; }
+
+.상자 {
+  background: #141a2e;
+  border: 1px solid #263050;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
 }
 
-.card p { margin: 0 0 6px; font-weight: 600; }
-.card .small { font-weight: 400; font-size: 0.9rem; color: var(--dim); }
+.상자제목 {
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  color: #45e0ff;
+  margin-bottom: 8px;
+}
 
-.works { margin: 0; padding-left: 20px; }
-.works li { margin-bottom: 10px; }
+.난이도이름 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: #ff6ec7;
+}
 
-.note {
-  margin-top: 16px;
-  padding: 12px 14px;
-  background: rgba(69, 224, 255, 0.07);
-  border: 1px solid rgba(69, 224, 255, 0.25);
+.항목, .점수줄 {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.86rem;
+  padding: 4px 0;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
+.항목:last-child, .점수줄:last-child { border-bottom: none; }
+.항목 span, .점수줄 span { color: #9aa5c0; }
+.항목 b, .점수줄 b { color: #e8ecf6; font-family: Consolas, monospace; }
+.점수줄 b { font-size: 1.1rem; }
+
+button {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 12px;
+  border: none;
   border-radius: 10px;
-  font-size: 0.92rem;
-  color: var(--dim);
+  background: linear-gradient(90deg, #45e0ff, #a273ff);
+  color: #070912;
+  font-size: 1rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
 }
+
+button:hover { filter: brightness(1.12); }
+
+.도움말 p { margin: 4px 0; font-size: 0.84rem; color: #9aa5c0; }
 
 code {
-  font-family: "JetBrains Mono", Consolas, monospace;
-  font-size: 0.88em;
+  font-family: Consolas, monospace;
   background: rgba(255, 255, 255, 0.07);
   padding: 2px 6px;
   border-radius: 5px;
-  color: var(--accent);
+  color: #45e0ff;
 }
 
-a { color: var(--accent); }
-
-footer {
-  padding-top: 26px;
-  border-top: 1px solid var(--line);
-  color: var(--dim);
-  font-size: 0.86rem;
-}
-
-@media (max-width: 520px) {
-  h1 { font-size: 2rem; }
-  header { padding-top: 46px; }
+@media (max-width: 760px) {
+  .오른쪽 { width: 100%; max-width: 420px; }
 }
