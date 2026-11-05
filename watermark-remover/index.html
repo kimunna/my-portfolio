@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>워터마크 지우개</title>
+<style>
+  :root {
+    --bg: #f6f6f4; --panel: #ffffff; --text: #1d1d1f; --muted: #6b6b70;
+    --line: #e2e2e0; --accent: #2f6fed; --accent-text: #ffffff; --hover: #f0f0ee;
+    --stage: #ebebe8; --danger: #d33a4f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #151517; --panel: #1f1f22; --text: #ececee; --muted: #9a9aa2;
+      --line: #313136; --accent: #5b8cff; --accent-text: #0d0d10; --hover: #2a2a2e;
+      --stage: #0f0f11; --danger: #ff6b7f;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+    display: flex; flex-direction: column;
+  }
+  header { flex-shrink: 0; padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  header h1 { margin: 0; font-size: 17px; }
+  header p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+  main { flex: 1; display: flex; min-height: 0; }
+  .panel {
+    width: 260px; flex-shrink: 0; padding: 16px; background: var(--panel);
+    border-right: 1px solid var(--line); overflow-y: auto; display: flex; flex-direction: column; gap: 18px;
+  }
+  .group h2 { margin: 0 0 8px; font-size: 12px; font-weight: 600; color: var(--muted); }
+  .tools { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  button {
+    font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 10px; cursor: pointer;
+  }
+  button:hover:not(:disabled) { background: var(--hover); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.active { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; width: 100%; padding: 10px; }
+  button.primary:hover:not(:disabled) { filter: brightness(1.08); background: var(--accent); }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  label.slider { display: block; margin-bottom: 10px; }
+  label.slider span { display: flex; justify-content: space-between; font-size: 13px; }
+  label.slider output { color: var(--muted); }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  label.check { display: flex; gap: 6px; align-items: center; font-size: 13px; }
+  .hint { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
+  .stage {
+    flex: 1; min-width: 0; background: var(--stage); position: relative;
+    display: flex; align-items: center; justify-content: center; padding: 16px; overflow: auto;
+  }
+  .drop {
+    border: 2px dashed var(--line); border-radius: 14px; padding: 48px 32px; text-align: center;
+    color: var(--muted); cursor: pointer; background: var(--panel); max-width: 420px;
+  }
+  .drop strong { display: block; color: var(--text); font-size: 16px; margin-bottom: 6px; }
+  .stage.dragover .drop { border-color: var(--accent); }
+  .wrap { position: relative; display: none; line-height: 0; box-shadow: 0 2px 12px rgba(0,0,0,.15); }
+  .wrap canvas { max-width: 100%; max-height: calc(100vh - 120px); display: block; }
+  #maskCanvas { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .5; touch-action: none; cursor: crosshair; }
+  #cursor {
+    position: fixed; pointer-events: none; border: 1.5px solid #fff; outline: 1px solid #000;
+    border-radius: 50%; display: none; transform: translate(-50%, -50%);
+  }
+  .busy {
+    position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+    background: rgba(0,0,0,.35); color: #fff; font-size: 15px; z-index: 5;
+  }
+  .busy.on { display: flex; }
+  .status { font-size: 12px; color: var(--muted); min-height: 18px; }
+  @media (max-width: 760px) {
+    html, body { height: auto; }
+    main { flex-direction: column-reverse; }
+    .panel { width: 100%; border-right: 0; border-top: 1px solid var(--line); }
+    .stage { min-height: 50vh; }
+    .wrap canvas { max-height: 50vh; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>워터마크 지우개</h1>
+  <p>지우고 싶은 부분을 칠하고 "지우기"를 누르세요. 사진은 내 브라우저 안에서만 처리돼요.</p>
+</header>
+<main>
+  <aside class="panel">
+    <div class="group">
+      <h2>1. 영역 선택</h2>
+      <div class="tools">
+        <button data-tool="brush" class="active" title="B">브러시</button>
+        <button data-tool="eraser" title="E">빼기</button>
+        <button data-tool="wand" title="W">색 선택</button>
+      </div>
+      <p class="hint" id="toolHint">워터마크 위를 칠해 주세요.</p>
+    </div>
+    <div class="group">
+      <label class="slider"><span>브러시 크기 <output id="sizeOut">24</output></span>
+        <input type="range" id="size" min="2" max="200" value="24"></label>
+      <label class="slider"><span>색 선택 허용 범위 <output id="tolOut">40</output></span>
+        <input type="range" id="tol" min="1" max="150" value="40"></label>
+      <label class="check"><input type="checkbox" id="contiguous" checked> 이어진 부분만 선택</label>
+      <label class="slider" style="margin-top:10px"><span>선택 영역 넓히기 <output id="growOut">2px</output></span>
+        <input type="range" id="grow" min="0" max="10" value="2"></label>
+    </div>
+    <div class="group">
+      <h2>2. 지우기</h2>
+      <button class="primary" id="run" disabled>지우기</button>
+      <div class="status" id="status"></div>
+    </div>
+    <div class="group">
+      <h2>3. 마무리</h2>
+      <div class="row">
+        <button id="undo" disabled title="Ctrl+Z">되돌리기</button>
+        <button id="clearMask" disabled>선택 해제</button>
+        <button id="compare" disabled title="누르고 있는 동안 원본 보기">원본 보기</button>
+        <button id="reset" disabled>처음으로</button>
+      </div>
+      <button id="download" disabled style="width:100%;margin-top:6px">이미지 저장</button>
+      <button id="newImg" style="width:100%;margin-top:6px">다른 이미지 열기</button>
+    </div>
+  </aside>
+  <section class="stage" id="stage">
+    <div class="drop" id="drop">
+      <strong>이미지를 여기에 끌어 놓으세요</strong>
+      클릭해서 고르거나, Ctrl+V로 붙여 넣어도 돼요.
+    </div>
+    <div class="wrap" id="wrap">
+      <canvas id="imgCanvas"></canvas>
+      <canvas id="maskCanvas"></canvas>
+    </div>
+    <div class="busy" id="busy">지우는 중…</div>
+  </section>
+</main>
+<div id="cursor"></div>
+<input type="file" id="file" accept="image/*" hidden>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const imgC = $('imgCanvas'), maskC = $('maskCanvas');
+  const ictx = imgC.getContext('2d', { willReadFrequently: true });
+  const mctx = maskC.getContext('2d', { willReadFrequently: true });
+  const MASK_COLOR = [255, 40, 90];
+  let tool = 'brush', fileName = 'image', original = null, history = [];
+  let drawing = false, last = null, hasImage = false;
+
+  // ---------- 이미지 불러오기 ----------
+  function loadFile(file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    fileName = (file.name || 'image').replace(/\.[^.]+$/, '');
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      imgC.width = maskC.width = img.naturalWidth;
+      imgC.height = maskC.height = img.naturalHeight;
+      ictx.drawImage(img, 0, 0);
+      mctx.clearRect(0, 0, maskC.width, maskC.height);
+      original = ictx.getImageData(0, 0, imgC.width, imgC.height);
+      history = [];
+      hasImage = true;
+      $('drop').style.display = 'none';
+      $('wrap').style.display = 'block';
+      setStatus(`${img.naturalWidth} × ${img.naturalHeight}px`);
+      refresh();
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = () => setStatus('이미지를 열 수 없어요.');
+    img.src = url;
+  }
+  $('drop').onclick = $('newImg').onclick = () => $('file').click();
+  $('file').onchange = e => { loadFile(e.target.files[0]); e.target.value = ''; };
+  const stage = $('stage');
+  stage.addEventListener('dragover', e => { e.preventDefault(); stage.classList.add('dragover'); });
+  stage.addEventListener('dragleave', () => stage.classList.remove('dragover'));
+  stage.addEventListener('drop', e => {
+    e.preventDefault(); stage.classList.remove('dragover');
+    loadFile(e.dataTransfer.files[0]);
+  });
+  window.addEventListener('paste', e => {
+    const item = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/'));
+    if (item) loadFile(item.getAsFile());
+  });
+
+  // ---------- 도구 ----------
+  const hints = {
+    brush: '워터마크 위를 칠해 주세요.',
+    eraser: '잘못 칠한 부분을 지워요.',
+    wand: '워터마크 색을 클릭하면 비슷한 색을 골라 줘요. Shift+클릭으로 빼기.'
+  };
+  function setTool(t) {
+    tool = t;
+    document.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === t));
+    $('toolHint').textContent = hints[t];
+    updateCursor();
+  }
+  document.querySelectorAll('[data-tool]').forEach(b => b.onclick = () => setTool(b.dataset.tool));
+  for (const [id, fmt] of [['size', v => v], ['tol', v => v], ['grow', v => v + 'px']]) {
+    const el = $(id), out = $(id + 'Out');
+    el.oninput = () => { out.textContent = fmt(el.value); updateCursor(); };
+  }
+
+  // ---------- 마스크 칠하기 ----------
+  const scale = () => maskC.width / maskC.getBoundingClientRect().width;
+  function toImg(e) {
+    const r = maskC.getBoundingClientRect(), s = scale();
+    return { x: (e.clientX - r.left) * s, y: (e.clientY - r.top) * s };
+  }
+  function stroke(a, b) {
+    mctx.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over';
+    mctx.strokeStyle = mctx.fillStyle = `rgb(${MASK_COLOR})`;
+    mctx.lineWidth = +$('size').value * 1; // 이미지 픽셀 기준
+    mctx.lineCap = mctx.lineJoin = 'round';
+    mctx.beginPath(); mctx.moveTo(a.x, a.y); mctx.lineTo(b.x, b.y); mctx.stroke();
+    mctx.globalCompositeOperation = 'source-over';
+  }
+  maskC.addEventListener('pointerdown', e => {
+    if (!hasImage || e.button > 0) return;
+    const p = toImg(e);
+    if (tool === 'wand') { magicWand(p, e.shiftKey); return; }
+    maskC.setPointerCapture(e.pointerId);
+    drawing = true; last = p; stroke(p, p);
+  });
+  maskC.addEventListener('pointermove', e => {
+    moveCursor(e);
+    if (!drawing) return;
+    const p = toImg(e); stroke(last, p); last = p;
+  });
+  const endDraw = () => { if (drawing) { drawing = false; refresh(); } };
+  maskC.addEventListener('pointerup', endDraw);
+  maskC.addEventListener('pointercancel', endDraw);
+  maskC.addEventListener('pointerleave', () => $('cursor').style.display = 'none');
+
+  const cursor = $('cursor');
+  function updateCursor() {
+    if (!hasImage) return;
+    const d = tool === 'wand' ? 10 : +$('size').value / scale();
+    cursor.style.width = cursor.style.height = d + 'px';
+  }
+  function moveCursor(e) {
+    if (e.pointerType === 'touch') return;
+    updateCursor();
+    cursor.style.display = 'block';
+    cursor.style.left = e.clientX + 'px'; cursor.style.top = e.clientY + 'px';
+  }
+
+  // ---------- 색 선택 ----------
+  function magicWand(p, subtract) {
+    const w = imgC.width, h = imgC.height;
+    const sx = Math.floor(p.x), sy = Math.floor(p.y);
+    if (sx < 0 || sy < 0 || sx >= w || sy >= h) return;
+    const d = ictx.getImageData(0, 0, w, h).data;
+    const si = (sy * w + sx) * 4, r0 = d[si], g0 = d[si + 1], b0 = d[si + 2];
+    const tol = +$('tol').value, tol2 = tol * tol * 3;
+    const near = i => { const dr = d[i*4]-r0, dg = d[i*4+1]-g0, db = d[i*4+2]-b0; return dr*dr+dg*dg+db*db <= tol2; };
+    const sel = new Uint8Array(w * h);
+    if ($('contiguous').checked) {
+      const stack = [sy * w + sx]; sel[stack[0]] = 1;
+      while (stack.length) {
+        const i = stack.pop(), x = i % w, y = (i / w) | 0;
+        for (const n of [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, y > 0 ? i - w : -1, y < h - 1 ? i + w : -1]) {
+          if (n >= 0 && !sel[n] && near(n)) { sel[n] = 1; stack.push(n); }
+        }
+      }
+    } else {
+      for (let i = 0; i < w * h; i++) if (near(i)) sel[i] = 1;
+    }
+    const m = mctx.getImageData(0, 0, w, h), md = m.data;
+    for (let i = 0; i < w * h; i++) {
+      if (!sel[i]) continue;
+      if (subtract) md[i*4+3] = 0;
+      else { md[i*4] = MASK_COLOR[0]; md[i*4+1] = MASK_COLOR[1]; md[i*4+2] = MASK_COLOR[2]; md[i*4+3] = 255; }
+    }
+    mctx.putImageData(m, 0, 0);
+    refresh();
+  }
+
+  // ---------- 지우기(인페인팅) ----------
+  // 마스크 바깥의 주변 색으로 안쪽을 채워 넣어요. 무거운 계산은 워커에서 해요.
+  const workerSrc = `
+  self.onmessage = e => {
+    const { rgba, mask, w, h } = e.data;
+    const N = w * h, R = new Float32Array(N), G = new Float32Array(N), B = new Float32Array(N);
+    const known = new Uint8Array(N);
+    let remaining = [];
+    for (let i = 0; i < N; i++) {
+      R[i] = rgba[i*4]; G[i] = rgba[i*4+1]; B[i] = rgba[i*4+2];
+      if (mask[i]) remaining.push(i); else known[i] = 1;
+    }
+    const filled = remaining.slice(), total = remaining.length, rad = 4;
+
+    // 1) 바깥 테두리부터 안쪽으로 한 겹씩 채우기
+    while (remaining.length) {
+      const front = [], rest = [];
+      for (const i of remaining) {
+        const x = i % w, y = (i / w) | 0;
+        let edge = false;
+        for (let dy = -1; dy <= 1 && !edge; dy++) for (let dx = -1; dx <= 1; dx++) {
+          const nx = x + dx, ny = y + dy;
+          if (nx >= 0 && ny >= 0 && nx < w && ny < h && known[ny * w + nx]) { edge = true; break; }
+        }
+        (edge ? front : rest).push(i);
+      }
+      if (!front.length) break;
+      const vals = new Float32Array(front.length * 3);
+      front.forEach((i, k) => {
+        const x = i % w, y = (i / w) | 0;
+        let sr = 0, sg = 0, sb = 0, sw = 0;
+        for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++) {
+          const nx = x + dx, ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          const j = ny * w + nx;
+          if (!known[j]) continue;
+          const wt = 1 / (dx * dx + dy * dy);
+          sr += R[j] * wt; sg += G[j] * wt; sb += B[j] * wt; sw += wt;
+        }
+        vals[k*3] = sr / sw; vals[k*3+1] = sg / sw; vals[k*3+2] = sb / sw;
+      });
+      front.forEach((i, k) => { R[i] = vals[k*3]; G[i] = vals[k*3+1]; B[i] = vals[k*3+2]; known[i] = 1; });
+      remaining = rest;
+      self.postMessage({ progress: 0.8 * (1 - remaining.length / total) });
+    }
+
+    // 2) 줄무늬 자국을 부드럽게 다듬기
+    const iters = 12;
+    for (let t = 0; t < iters; t++) {
+      for (const i of filled) {
+        const x = i % w, y = (i / w) | 0;
+        const l = x > 0 ? i - 1 : i, r = x < w - 1 ? i + 1 : i, u = y > 0 ? i - w : i, d = y < h - 1 ? i + w : i;
+        R[i] = (R[l] + R[r] + R[u] + R[d]) / 4;
+        G[i] = (G[l] + G[r] + G[u] + G[d]) / 4;
+        B[i] = (B[l] + B[r] + B[u] + B[d]) / 4;
+      }
+    }
+
+    // 3) 주변의 자연스러운 거친 느낌(노이즈)을 살짝 입히기
+    let ns = 0, nc = 0;
+    for (let i = 0; i < N; i++) {
+      if (mask[i]) continue;
+      const x = i % w, y = (i / w) | 0;
+      if (x < 1 || y < 1 || x >= w - 1 || y >= h - 1) continue;
+      const lum = j => 0.299 * R[j] + 0.587 * G[j] + 0.114 * B[j];
+      ns += Math.abs(lum(i) - (lum(i-1) + lum(i+1) + lum(i-w) + lum(i+w)) / 4); nc++;
+    }
+    const sigma = nc ? Math.min(12, (ns / nc) * 0.9) : 0;
+    const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) * 2;
+    for (const i of filled) {
+      const n = gauss() * sigma;
+      R[i] += n; G[i] += n; B[i] += n;
+    }
+
+    const out = new Uint8ClampedArray(rgba);
+    for (const i of filled) { out[i*4] = R[i]; out[i*4+1] = G[i]; out[i*4+2] = B[i]; out[i*4+3] = 255; }
+    self.postMessage({ done: true, rgba: out }, [out.buffer]);
+  };`;
+  const worker = new Worker(URL.createObjectURL(new Blob([workerSrc], { type: 'text/javascript' })));
+
+  function getMask() {
+    const w = maskC.width, h = maskC.height;
+    const md = mctx.getImageData(0, 0, w, h).data;
+    let mask = new Uint8Array(w * h), any = false;
+    for (let i = 0; i < w * h; i++) if (md[i*4+3] > 20) { mask[i] = 1; any = true; }
+    const grow = +$('grow').value;
+    for (let g = 0; g < grow && any; g++) {
+      const next = mask.slice();
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        const i = y * w + x;
+        if (mask[i]) continue;
+        if ((x > 0 && mask[i-1]) || (x < w-1 && mask[i+1]) || (y > 0 && mask[i-w]) || (y < h-1 && mask[i+w])) next[i] = 1;
+      }
+      mask = next;
+    }
+    return any ? mask : null;
+  }
+  function maskIsEmpty() {
+    const md = mctx.getImageData(0, 0, maskC.width, maskC.height).data;
+    for (let i = 3; i < md.length; i += 4) if (md[i] > 20) return false;
+    return true;
+  }
+
+  $('run').onclick = () => {
+    const mask = getMask();
+    if (!mask) return;
+    const W = imgC.width, H = imgC.height;
+    let x0 = W, y0 = H, x1 = -1, y1 = -1;
+    for (let i = 0; i < mask.length; i++) if (mask[i]) {
+      const x = i % W, y = (i / W) | 0;
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+    }
+    const pad = 12;
+    x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad);
+    x1 = Math.min(W - 1, x1 + pad); y1 = Math.min(H - 1, y1 + pad);
+    const w = x1 - x0 + 1, h = y1 - y0 + 1;
+    const region = ictx.getImageData(x0, y0, w, h);
+    const sub = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) sub[y * w + x] = mask[(y + y0) * W + x + x0];
+
+    history.push(ictx.getImageData(0, 0, W, H));
+    if (history.length > 20) history.shift();
+    $('busy').classList.add('on');
+    worker.onmessage = e => {
+      if (e.data.progress != null) { $('busy').textContent = `지우는 중… ${Math.round(e.data.progress * 100)}%`; return; }
+      ictx.putImageData(new ImageData(e.data.rgba, w, h), x0, y0);
+      mctx.clearRect(0, 0, W, H);
+      $('busy').classList.remove('on'); $('busy').textContent = '지우는 중…';
+      setStatus('다 지웠어요. 자국이 남으면 한 번 더 칠해서 지워 보세요.');
+      refresh();
+    };
+    worker.postMessage({ rgba: region.data, mask: sub, w, h });
+  };
+
+  // ---------- 마무리 ----------
+  function undo() {
+    if (!history.length) return;
+    ictx.putImageData(history.pop(), 0, 0);
+    setStatus('한 단계 되돌렸어요.');
+    refresh();
+  }
+  $('undo').onclick = undo;
+  $('clearMask').onclick = () => { mctx.clearRect(0, 0, maskC.width, maskC.height); refresh(); };
+  $('reset').onclick = () => {
+    if (!original) return;
+    history.push(ictx.getImageData(0, 0, imgC.width, imgC.height));
+    ictx.putImageData(original, 0, 0);
+    mctx.clearRect(0, 0, maskC.width, maskC.height);
+    setStatus('처음 이미지로 돌아왔어요.');
+    refresh();
+  };
+  let saved = null;
+  const showOrig = () => { if (!original || saved) return; saved = ictx.getImageData(0, 0, imgC.width, imgC.height); ictx.putImageData(original, 0, 0); maskC.style.visibility = 'hidden'; };
+  const hideOrig = () => { if (!saved) return; ictx.putImageData(saved, 0, 0); saved = null; maskC.style.visibility = ''; };
+  const cmp = $('compare');
+  cmp.addEventListener('pointerdown', showOrig);
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => cmp.addEventListener(ev, hideOrig));
+
+  $('download').onclick = () => {
+    imgC.toBlob(blob => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${fileName}-clean.png`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }, 'image/png');
+  };
+
+  window.addEventListener('keydown', e => {
+    if (!hasImage || e.target.tagName === 'INPUT') return;
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
+    else if (e.key === 'b') setTool('brush');
+    else if (e.key === 'e') setTool('eraser');
+    else if (e.key === 'w') setTool('wand');
+    else if (e.key === 'Enter' && !$('run').disabled) $('run').click();
+    else if (e.key === '[') { $('size').value = Math.max(2, +$('size').value - 4); $('size').oninput(); }
+    else if (e.key === ']') { $('size').value = +$('size').value + 4; $('size').oninput(); }
+  });
+
+  function setStatus(t) { $('status').textContent = t; }
+  function refresh() {
+    const empty = !hasImage || maskIsEmpty();
+    $('run').disabled = empty;
+    $('clearMask').disabled = empty;
+    $('undo').disabled = !history.length;
+    for (const id of ['compare', 'reset', 'download']) $(id).disabled = !hasImage;
+  }
+})();
+</script>
+</body>
+</html>
