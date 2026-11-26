@@ -1,0 +1,7 @@
+node_modules/
+meta-dm-mcp/dist/
+meta-dm-mcp/data/
+.env
+*.env
+!*.env.example
+.claude/settings.local.json
