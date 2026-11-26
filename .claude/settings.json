@@ -1,0 +1,16 @@
+{
+  "enabledMcpjsonServers": ["meta-dm"],
+  "permissions": {
+    "allow": [
+      "mcp__meta-dm__list_conversations",
+      "mcp__meta-dm__get_conversation",
+      "mcp__meta-dm__list_drafts",
+      "mcp__meta-dm__create_draft",
+      "mcp__meta-dm__update_draft",
+      "mcp__meta-dm__discard_draft"
+    ],
+    "ask": [
+      "mcp__meta-dm__send_draft"
+    ]
+  }
+}

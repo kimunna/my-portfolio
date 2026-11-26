@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "meta-dm": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["meta-dm-mcp/dist/index.js"]
+    }
+  }
+}
